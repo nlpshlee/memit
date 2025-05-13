@@ -19,9 +19,7 @@ def load_datas(in_file_path: str):
     return datas
 
 
-def get_model_editor(num_edits=100, hparams_fname_suffix='', hparams_mod=None):
-    alg_name = 'MEMIT'
-    model_name = 'gpt2-xl'
+def get_model_editor(num_edits=100, hparams_fname_suffix='', hparams_mod=None, alg_name='MEMIT', model_name='gpt2-xl'):
     hparams_fname = model_name + '{}.json'.format(hparams_fname_suffix)
     ds_name = 'mcf'
     # num_edits = 100
@@ -365,6 +363,106 @@ def run_250214_multiple_relation_last_tok():
         model_editor_subject_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
 
 
+def run_250508_ft_multiple():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
+
+    file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
+    num_edits = 1000
+
+    for i in tqdm(range(10, -1, -1)):
+        in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), '')
+        datas = load_datas(in_file_path)
+
+        model_editor = get_model_editor(num_edits, alg_name='FT', hparams_fname_suffix='_constr')
+        model_editor._do_eval_org_model = False
+        model_editor._do_eval_new_model = False
+
+        model_editor.edit_ext_datas(datas, True, True, True, False, False, False)
+
+
+def run_250508_ft_sequential_test():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
+
+    identical_num, num_edits = 4, 5
+    in_path = f'{data_dir}/identical{identical_num}'
+
+    in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch1.json'
+    datas = load_datas(in_file_path)
+
+    # 가중치 복원(O) 테스트
+    model_editor = get_model_editor(num_edits, alg_name='FT', hparams_fname_suffix='_constr')
+    model_editor._do_eval_org_model = False
+    model_editor._do_eval_new_model = False
+    for i in range(3):
+        model_editor.edit_ext_datas(datas, True, True, True, False, True, False)
+    
+
+    # 가중치 복원(X) 테스트
+    model_editor = get_model_editor(num_edits, alg_name='FT', hparams_fname_suffix='_constr')
+    model_editor._do_eval_org_model = False
+    model_editor._do_eval_new_model = False
+    for i in range(3):
+        model_editor.edit_ext_datas(datas, True, True, True, False, False, False)
+
+
+def run_250508_ft_sequential():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
+
+    for identical_num, num_edits in zip([4, 3, 2], [5, 35, 500]):
+        in_path = f'{data_dir}/identical{identical_num}'
+
+        model_editor = get_model_editor(num_edits, alg_name='FT', hparams_fname_suffix='_constr')
+        model_editor._do_eval_org_model = False
+        model_editor._do_eval_new_model = False
+
+        datas_batchs, extend_size = [], 0
+
+        for batch_idx in tqdm(range(1, identical_num+1)):
+            print(f'### falcon.tester.run_250508_ft_sequential() identical : {identical_num}, batch_size : {num_edits}, batch_idx : {batch_idx}\n')
+
+            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}.json'
+            datas = load_datas(in_file_path)
+
+            # 파인튜닝만 진행
+            model_editor.edit_ext_datas(datas, False, True, False, False, False, False)
+
+            datas_batchs.append(datas)
+            extend_size += len(datas)
+
+            # 파인튜닝 이후, 배치 단위로 성능 측정
+            print(f'\n### extend_size : {extend_size}\n')
+            for i, datas_batch in enumerate(datas_batchs):
+                print(f'[{i+1}] batch size : {len(datas_batch)}')
+                if batch_idx == identical_num:
+                    model_editor._do_eval_org_model = True
+                
+                model_editor.edit_ext_datas(datas_batch, True, False, False, False, False, False)
+        # break
+
+
+def run_250509_ft_multiple_high_epoch():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
+
+    file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
+    num_edits = 1000
+
+    for num_steps in tqdm([250, 500, 1000]):
+        for i in tqdm([0, 5, 10]):
+            in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), '')
+            datas = load_datas(in_file_path)
+
+            model_editor = get_model_editor(num_edits, alg_name='FT', hparams_fname_suffix='_constr')
+            model_editor.set_params_external({'num_steps': num_steps})
+            model_editor._do_eval_org_model = False
+            model_editor._do_eval_new_model = False
+
+            model_editor.edit_ext_datas(datas, False, True, True, False, False, False)
+
+
 if __name__ == "__main__":
     # run()
     # run_241201()
@@ -374,5 +472,9 @@ if __name__ == "__main__":
     # run_250117_multiple_evaluate_matrix()
     # run_250213_sequential()
     # run_250214_multiple_only_relation()
-    run_250214_multiple_relation_last_tok()
+    # run_250214_multiple_relation_last_tok()
+    # run_250508_ft_multiple()
+    # run_250508_ft_sequential_test()
+    # run_250508_ft_sequential()
+    run_250509_ft_multiple_high_epoch()
 
