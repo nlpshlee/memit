@@ -67,15 +67,32 @@ class Trace(contextlib.AbstractContextManager):
         self.layer = layer
         if layer is not None:
             module = get_module(module, layer)
+        self.module = module
+
+
+        if retain_input:
+            # 원본 forward 저장
+            self._orig_forward = module.forward
+
+            import functools
+            @functools.wraps(self._orig_forward)
+            def _wrapped_forward(*args, **kwargs):
+                # GPT-J 블록의 forward 호출은 always kwargs[_hidden_states_]=Tensor 인 구조
+                hidden = kwargs.get("hidden_states",
+                        args[0] if len(args) > 0 else None)
+                # 가져온 hidden_states 를 즉시 저장
+                retainer.input = recursive_copy(
+                    hidden, clone=clone, detach=detach, retain_grad=False
+                )
+                # 원본 forward 실행
+                return self._orig_forward(*args, **kwargs)
+
+            # 인스턴스 메서드로 바꿔치기
+            module.forward = _wrapped_forward
+
 
         def retain_hook(m, inputs, output):
-            if retain_input:
-                retainer.input = recursive_copy(
-                    inputs[0] if len(inputs) == 1 else inputs,
-                    clone=clone,
-                    detach=detach,
-                    retain_grad=False,
-                )  # retain_grad applies to output only.
+            # retain_grad applies to output only.
             if edit_output:
                 output = invoke_with_optional_args(
                     edit_output, output=output, layer=self.layer
@@ -106,6 +123,10 @@ class Trace(contextlib.AbstractContextManager):
 
     def close(self):
         self.registered_hook.remove()
+
+        # forward 래핑 복원
+        if hasattr(self, "_orig_forward"):
+            self.module.forward = self._orig_forward
 
 
 class TraceDict(OrderedDict, contextlib.AbstractContextManager):

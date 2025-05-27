@@ -463,6 +463,171 @@ def run_250509_ft_multiple_high_epoch():
             model_editor.edit_ext_datas(datas, False, True, True, False, False, False)
 
 
+def run_250514_mend_multiple():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
+
+    file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
+    num_edits = 1000
+
+    for i in tqdm(range(10, -1, -1)):
+        in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), '')
+        datas = load_datas(in_file_path)
+
+        model_editor = get_model_editor(num_edits, alg_name='MEND', hparams_fname_suffix='')
+        model_editor._do_eval_org_model = False
+
+        if i == 0 or i == 10:
+            model_editor._do_eval_new_model = True
+        else:
+            model_editor._do_eval_new_model = False
+
+        model_editor.edit_ext_datas(datas, True, True, True, False, False, False)
+
+
+def run_250515_mend_sequential():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
+
+    for identical_num, num_edits in zip([4, 3, 2], [5, 35, 500]):
+        in_path = f'{data_dir}/identical{identical_num}'
+
+        model_editor = get_model_editor(num_edits, alg_name='MEND', hparams_fname_suffix='')
+        model_editor._do_eval_org_model = False
+        model_editor._do_eval_new_model = False
+
+        datas_batchs, extend_size = [], 0
+
+        for batch_idx in tqdm(range(1, identical_num+1)):
+            print(f'### falcon.tester.run_250515_mend_sequential() identical : {identical_num}, batch_size : {num_edits}, batch_idx : {batch_idx}\n')
+
+            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}.json'
+            datas = load_datas(in_file_path)
+
+            # MEND만 진행
+            model_editor.edit_ext_datas(datas, False, True, False, False, False, False)
+
+            datas_batchs.append(datas)
+            extend_size += len(datas)
+
+            # MEND 이후, 배치 단위로 성능 측정
+            print(f'\n### extend_size : {extend_size}\n')
+            for i, datas_batch in enumerate(datas_batchs):
+                print(f'[{i+1}] batch size : {len(datas_batch)}')
+                if batch_idx == identical_num:
+                    model_editor._do_eval_org_model = True
+                
+                model_editor.edit_ext_datas(datas_batch, True, False, False, False, False, False)
+
+
+def run_250517_multiple(alg_name='MEMIT', model_name='gpt2-xl', layers_subject=[13, 14, 15, 16, 17], layers_relation=[26, 27, 28, 29, 30], mode=1):
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
+
+    file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
+    num_edits = 1000
+
+    model_editor = get_model_editor(num_edits, alg_name=alg_name, model_name=model_name)
+    
+    # for i in tqdm(range(10, -1, -1)):
+    # for i in tqdm([10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]):
+    # for i in tqdm([10, 5, 0, 9, 8, 7, 6, 4, 3, 2, 1]):
+    for i in tqdm([10, 5, 0]):
+        in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), '')
+        datas_subject = load_datas(in_file_path)
+
+        # Subject 데이터로만 MEMIT 편집 수행
+        if mode == 1:
+            model_editor._do_eval_new_model = False
+            if i == 10 or i == 5 or i == 0:
+                model_editor._do_eval_new_model = True
+
+            model_editor.set_params_external({'layers': layers_subject})
+            model_editor.edit_ext_datas(datas_subject, False, True, True, False, False, False)
+
+        # Two-Step 편집
+        elif mode == 2:
+            in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), '_sr_swap_post')
+            datas_relation = load_datas(in_file_path)
+
+            model_editor._do_eval_new_model = False
+
+            model_editor.set_params_external({'layers': layers_subject})
+            model_editor.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+
+            if i == 10 or i == 5 or i == 0:
+                model_editor._do_eval_new_model = True
+
+            model_editor.set_params_external({'layers': layers_relation})
+            model_editor.edit_ext_datas(datas_relation, False, True, True, False, False, False)
+
+        # 가중치 복원 및 결과 폴더 재설정
+        model_editor.restore_weights()
+        model_editor.check_continue_from_run()
+
+
+def run_250527_sequential(alg_name='MEMIT', model_name='gpt2-xl', layers_subject=[13, 14, 15, 16, 17], layers_relation=[26, 27, 28, 29, 30], mode=1):
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
+
+    layers_all = deepcopy(layers_subject)
+    layers_all.extend(layers_relation)
+    print(f'### falcon.tester.run_250527_sequential() layers_subject : {layers_subject}')
+    print(f'### falcon.tester.run_250527_sequential() layers_relation : {layers_relation}')
+    print(f'### falcon.tester.run_250527_sequential() layers_all : {layers_all}\n')
+
+    model_editor = get_model_editor(alg_name=alg_name, model_name=model_name)
+    weights_copy = model_editor.copy_weights(layers_all)
+
+    for identical_num, num_edits in zip([4, 3, 2], [5, 35, 500]):
+        in_path = f'{data_dir}/identical{identical_num}'
+
+        model_editor._num_edits = num_edits
+        model_editor._print_init()
+        model_editor._do_eval_org_model = False
+        model_editor._do_eval_new_model = False
+
+        datas_batchs, datas_extend = [], []
+
+        for batch_idx in tqdm(range(1, identical_num+1)):
+            print(f'### falcon.tester.run_250527_sequential() identical : {identical_num}, batch_size : {num_edits}, batch_idx : {batch_idx}\n')
+
+            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}.json'
+            datas_subject = load_datas(in_file_path)
+
+            # Subject 데이터로만 MEMIT 편집 수행
+            if mode == 1:
+                model_editor.set_params_external({'layers': layers_subject})
+                model_editor.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+
+            # Two-Step 편집
+            elif mode == 2:
+                in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}_sr_swap_post.json'
+                datas_relation = load_datas(in_file_path)
+
+                model_editor.set_params_external({'layers': layers_subject})
+                model_editor.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+                model_editor.set_params_external({'layers': layers_relation})
+                model_editor.edit_ext_datas(datas_relation, False, True, False, False, False, False)
+
+            # 제안 방법에 대한 배치 단위 성능 측정
+            datas_batchs.append(datas_subject)
+            datas_extend.extend(datas_subject)
+
+            # if batch_idx > 1:
+            print(f'\n### datas_extend size : {len(datas_extend)}\n')
+            for i, datas_batch in enumerate(datas_batchs):
+                print(f'[{i}] batch size : {len(datas_batch)}')
+                if batch_idx == identical_num:
+                    model_editor._do_eval_org_model = True
+
+                model_editor.edit_ext_datas(datas_batch, True, False, False, False, False, False)
+        
+        # 가중치 복원 및 결과 폴더 재설정
+        model_editor.restore_weights(weights_copy)
+        model_editor.check_continue_from_run()
+
+
 if __name__ == "__main__":
     # run()
     # run_241201()
@@ -476,5 +641,9 @@ if __name__ == "__main__":
     # run_250508_ft_multiple()
     # run_250508_ft_sequential_test()
     # run_250508_ft_sequential()
-    run_250509_ft_multiple_high_epoch()
+    # run_250509_ft_multiple_high_epoch()
+    # run_250514_mend_multiple()
+    # run_250515_mend_sequential()
+    # run_250517_multiple('MEMIT', 'EleutherAI/gpt-j-6B', [3, 4, 5, 6, 7, 8], [11, 12, 13, 14, 15, 16], mode=2)
+    run_250527_sequential('MEMIT', 'EleutherAI/gpt-j-6B', [3, 4, 5, 6, 7, 8], [11, 12, 13, 14, 15, 16], mode=2)
 

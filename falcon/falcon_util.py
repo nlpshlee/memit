@@ -1,5 +1,10 @@
-import os, sys, json, string, re
+import os, sys, json, string, re, gc, psutil
 from itertools import islice
+
+import torch
+
+import warnings
+warnings.filterwarnings('ignore')
 
 
 ENCODING = "UTF-8"
@@ -55,9 +60,9 @@ def to_json_str(input, indent=4):
         return ""
 
 
-def write_json_to_file(json_dict, out_file_path, encoding=ENCODING):
+def write_json_to_file(json_dict, out_file_path, encoding=ENCODING, indent=4):
     out_file = open_file(out_file_path, encoding, 'w')
-    out_file.write(to_json_str(json_dict))
+    out_file.write(to_json_str(json_dict, indent))
     out_file.close()
 
 
@@ -106,34 +111,34 @@ def remove_symbol_edge(text: str, symbols=PUNCTUATION):
     return text.strip(symbols)
 
 
-def get_file_name(file_path: str, rm_ext_flag=False) :
+def get_file_name(file_path: str, rm_ext_flag=False):
     file_name = os.path.basename(file_path)
 
-    if rm_ext_flag :
+    if rm_ext_flag:
         idx = file_name.rfind(FILE_EXT)
 
-        if idx != -1 :
+        if idx != -1:
             file_name = file_name[:idx]
     
     return file_name
 
 
-def get_file_paths(in_path: str, inner_flag=True) :
+def get_file_paths(in_path: str, inner_flag=True):
     file_paths = []
 
-    if inner_flag :
-        for (parent_path, dirs, file_names) in os.walk(in_path) :
-                for file_name in file_names :
+    if inner_flag:
+        for (parent_path, dirs, file_names) in os.walk(in_path):
+                for file_name in file_names:
                     file_path = os.path.join(parent_path, file_name)
 
-                    if os.path.isfile(file_path) :
+                    if os.path.isfile(file_path):
                         file_paths.append(file_path)
-    else :
+    else:
         file_names = os.listdir(in_path)
-        for file_name in file_names :
+        for file_name in file_names:
             file_path = os.path.join(in_path, file_name)
 
-            if os.path.isfile(file_path) :
+            if os.path.isfile(file_path):
                 file_paths.append(file_path)
 
     return file_paths
@@ -158,7 +163,7 @@ def load_json_file(in_file_path: str, encoding=ENCODING, do_print=False):
             datas = json.load(file)
 
             if do_print:
-                print(f'# falcon_util.load_json_file() datas size : {len(datas)}, in_file_path : {in_file_path}')
+                logging(f'# falcon_util.load_json_file() datas size : {len(datas)}, in_file_path : {in_file_path}')
 
             return datas
 
@@ -183,7 +188,7 @@ def open_file(file_path: str, encoding=ENCODING, mode='r'):
         return open(file_path, mode, encoding=encoding)
 
 
-def file_to_freq_dict(in_file_path: str, encoding=ENCODING, delim_key=DELIM_KEY, in_dict=dict()):
+def file_to_freq_dict(in_file_path: str, in_dict: dict, encoding=ENCODING, delim_key=DELIM_KEY, do_print=False):
     in_file = open_file(in_file_path, encoding, mode='r')
 
     while 1:
@@ -198,7 +203,25 @@ def file_to_freq_dict(in_file_path: str, encoding=ENCODING, delim_key=DELIM_KEY,
         add_dict_freq(in_dict, key, value)
     in_file.close()
 
+    if do_print:
+        logging(f'# falcon_util.file_to_freq_dict() size : {len(in_dict)}')
     return in_dict
+
+
+def file_to_set(in_file_path: str, in_set: set, encoding=ENCODING, do_print=False):
+    in_file = open_file(in_file_path, encoding, mode='r')
+
+    while 1:
+        line = in_file.readline()
+        if not line:
+            break
+
+        in_set.add(line.strip())
+    in_file.close()
+    
+    if do_print:
+        logging(f'# falcon_util.file_to_set() size : {len(in_set)}')
+    return in_set
 
 
 def window(seq, n=2):
@@ -247,6 +270,18 @@ def sorted_dict(in_dict: dict):
     return sorted_dict_value(sorted_dict_key(in_dict, False), True)
 
 
+def add_dict_list(in_dict: dict, key, values: list):
+    if not key in in_dict.keys():
+        in_dict[key] = []
+    in_dict[key].extend(values)
+
+
+def add_dict_set(in_dict: dict, key, values: list):
+    if not key in in_dict.keys():
+        in_dict[key] = set()
+    in_dict[key].update(values)
+
+
 def add_dict_freq(in_dict: dict, key, value=1):
     if key in in_dict.keys():
         in_dict[key] += value
@@ -254,12 +289,24 @@ def add_dict_freq(in_dict: dict, key, value=1):
         in_dict[key] = value
 
 
-def write_dict_freq(out_dict: dict, out_file_path: str, encoding=ENCODING, delim=DELIM_KEY) :
+def write_dict_freq(out_dict: dict, out_file_path: str, encoding=ENCODING, delim=DELIM_KEY):
     file = open_file(out_file_path, encoding, 'w')
 
     items = out_dict.items()
-    for item in items :
+    for item in items:
         file.write(f"{item[0]}{delim}{item[1]}\n")
+    
+    file.close()
+
+
+def write_set(out_set: set, out_file_path: str, encoding=ENCODING, is_reverse=False):
+    file = open_file(out_file_path, encoding, 'w')
+
+    out_list = list(out_set)
+    out_list.sort(reverse = is_reverse)
+
+    for i in range(len(out_list)):
+        file.write(f"{out_list[i]}\n")
     
     file.close()
 
@@ -269,7 +316,7 @@ def trim(input_list: list, rm_empty_flag: bool):
         for i in range(len(input_list)):
             if input_list[i] is None:
                 input_list[i] = ""
-            else :
+            else:
                 input_list[i] = str(input_list[i]).strip()
     else:
         result = []
@@ -279,3 +326,29 @@ def trim(input_list: list, rm_empty_flag: bool):
                 result.append(str(input_list[i]).strip())
         
         return result
+
+
+def print_gpu_memory(device=0, prefix=''):
+    if not torch.cuda.is_available():
+        logging(f'# falcon_util.print_gpu_memory() [GPU] CUDA not available')
+    else:
+        # torch에서 추적하는 할당/예약 메모리
+        allocated = torch.cuda.memory_allocated(device)
+        reserved  = torch.cuda.memory_reserved(device)
+        logging(f'\n# falcon_util.print_gpu_memory() {prefix} [GPU:{device}] Allocated: {allocated/1e9:.2f} GB | Reserved: {reserved/1e9:.2f} GB\n')
+
+        # 최대/최소 사용량 (optional)
+        # max_alloc = torch.cuda.max_memory_allocated(device)
+        # max_resv  = torch.cuda.max_memory_reserved(device)
+        # logging(f'# falcon_util.print_gpu_memory() {prefix} [GPU:{device}] Max allocated: {max_alloc/1e9:.2f} GB | Max reserved: {max_resv/1e9:.2f} GB')
+
+
+def clear_gpu_memory(device=0):
+    if not torch.cuda.is_available():
+        logging('# falcon_util.clear_gpu_memory() [GPU] CUDA not available')
+    else:
+        print_gpu_memory(device, '[Before Clear]')
+        gc.collect()
+        torch.cuda.empty_cache()
+        print_gpu_memory(device, '[After Clear]')
+

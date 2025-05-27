@@ -24,6 +24,7 @@ from dsets import (
     get_tfidf_vectorizer
 )
 
+
 ALG_DICT = {
     'FT': (FTHyperParams, apply_ft_to_model),
     'MEND': (MENDHyperParams, MendRewriteExecutor().apply_to_model),
@@ -94,7 +95,7 @@ class ModelEditor:
 
         self._run_dir = ''
         self._case_result_template = ''
-        self._check_continue_from_run()
+        self.check_continue_from_run()
 
         self._hparams = None
         self._set_params(hparams_mod)
@@ -131,9 +132,9 @@ class ModelEditor:
         print(f'\tnum_edits : {self._num_edits}')
         print(f'\tuse_cache : {self._use_cache}')
         print(f'\toutput_hidden_states : {self._output_hidden_states}\n\n')
-    
 
-    def _check_continue_from_run(self):
+
+    def check_continue_from_run(self):
         if self._continue_from_run is not None:
             self._run_dir = RESULTS_DIR/self._dir_name/self._continue_from_run
             if not self._run_dir.exists():
@@ -156,7 +157,7 @@ class ModelEditor:
         # 실험 결과를 저장하는 파일명 템플릿
         self._case_result_template = str(self._run_dir / '{}_edits-case_{}.json')
         
-        print(f'# ModelEditor._check_continue_from_run() Results will be stored at [{self._run_dir}]')
+        print(f'# ModelEditor.check_continue_from_run() Results will be stored at [{self._run_dir}]')
     
 
     def _set_params(self, hparams_mod: dict=None):
@@ -369,7 +370,7 @@ class ModelEditor:
         gen_test_vars = [self._snips, self._vec]
 
         start = time.time()
-        for record in records:
+        for i, record in enumerate(records):
             out_file = Path(self._case_result_template.format(self._num_edits, record['case_id']))
             if out_file.exists():
                 print(f'# ModelEditor._evaluate() skipping [{out_file}] already exists')
@@ -397,18 +398,44 @@ class ModelEditor:
             # Dump metrics in .json
             with open(out_file, "w") as f:
                 json.dump(metrics, f, indent=1)
+            
+            if (i+1) % 100 == 0:
+                print(f'# ModelEditor._evaluate() complet : {i+1}')
+        if len(records) % 100 != 0:
+            print(f'# ModelEditor._evaluate() complet : {len(records)}\n')
 
         eval_time = time.time() - start
         print(f'# ModelEditor._evaluate() Evaluation took : {eval_time}\n\n')
 
 
-    def restore_weights(self):
+    def copy_weights(self, layer_nums: list):
+        weights_copy = {}
+
         with torch.no_grad():
-            for k, v in self._weights_copy.items():
-                nethook.get_parameter(self._model, k)[...] = v.to('cuda')
-            
-            self._weights_copy = None
-            print(f'# ModelEditor.restore_weights() weights restored\n')
+            for layer_num in layer_nums:
+                layer_name = f'{self._hparams.rewrite_module_tmp.format(layer_num)}.weight'
+
+                if layer_name not in weights_copy.keys():
+                    weight = nethook.get_parameter(self._model, layer_name)
+                    weights_copy[layer_name] = weight.detach().clone()
+        
+        print(f'# ModelEditor.copy_weights() layer_nums : {layer_nums} weights copy\n')
+        return weights_copy
+
+
+    def restore_weights(self, weights_copy_external=None):
+        with torch.no_grad():
+            if weights_copy_external is None:
+                for k, v in self._weights_copy.items():
+                    nethook.get_parameter(self._model, k)[...] = v.to('cuda')
+
+                self._weights_copy = None
+                print(f'# ModelEditor.restore_weights() weights restored\n')
+            else:
+                for k, v in weights_copy_external.items():
+                    nethook.get_parameter(self._model, k)[...] = v.to('cuda')
+
+                print(f'# ModelEditor.restore_weights() external weights restored\n')
 
 
     def edit_ext_datas(self, datas, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True):
@@ -418,6 +445,7 @@ class ModelEditor:
 
 
     def edit(self, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True):
+        # clear_gpu_memory()
         if self._num_edits > 1:
             assert self._ds_name != 'cf', f'{self._ds_name} does not support multiple edits'
         
