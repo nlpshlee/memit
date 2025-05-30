@@ -1,4 +1,4 @@
-import os, sys, json, string, re, gc, psutil
+import os, sys, json, string, re, gc
 from itertools import islice
 
 import torch
@@ -41,31 +41,6 @@ def logging_error(call_path: str, e: Exception):
     logging(f"### (ERROR) {call_path} error : {e}\n", LOG_OPTION.STDERR)
 
 
-def json_str_to_dict(json_str: str):
-    try:
-        # 문자열을 읽을 때는, loads() 호출
-        return json.loads(json_str)
-
-    except Exception as e:
-        logging_error("json_str_to_dict()", e)
-        return None
-
-
-def to_json_str(input, indent=4):
-    try:
-        return json.dumps(input, ensure_ascii=False, indent=indent)
-
-    except Exception as e:
-        logging_error("to_json_str()", e)
-        return ""
-
-
-def write_json_to_file(json_dict, out_file_path, encoding=ENCODING, indent=4):
-    out_file = open_file(out_file_path, encoding, 'w')
-    out_file.write(to_json_str(json_dict, indent))
-    out_file.close()
-
-
 def is_empty(text: str, trim_flag=True):
     if text is None:
         return True
@@ -101,6 +76,10 @@ def contains_symbol(text: str, symbols=PUNCTUATION):
             return True
 
     return False
+
+
+def remove_space(text: str):
+    return re.sub(r'[ \t\n]+', '', text)
 
 
 def remove_delim_multi(text: str):
@@ -154,26 +133,6 @@ def exists(file_path: str):
     return False
 
 
-def load_json_file(in_file_path: str, encoding=ENCODING, do_print=False):
-    try:
-        if exists(in_file_path):
-            file = open_file(in_file_path, encoding, 'r')
-
-            # 파일을 읽을 때는, load() 호출
-            datas = json.load(file)
-
-            if do_print:
-                logging(f'# falcon_util.load_json_file() datas size : {len(datas)}, in_file_path : {in_file_path}')
-
-            return datas
-
-    except Exception as e:
-        logging_error("# falcon_util.load_json_file() error : ", e)
-        return None
-
-    return None
-
-
 def make_parent(file_path: str):
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
@@ -188,7 +147,7 @@ def open_file(file_path: str, encoding=ENCODING, mode='r'):
         return open(file_path, mode, encoding=encoding)
 
 
-def file_to_freq_dict(in_file_path: str, in_dict: dict, encoding=ENCODING, delim_key=DELIM_KEY, do_print=False):
+def load_freq_dict(in_file_path: str, in_dict: dict, encoding=ENCODING, delim_key=DELIM_KEY, do_print=False):
     in_file = open_file(in_file_path, encoding, mode='r')
 
     while 1:
@@ -204,11 +163,11 @@ def file_to_freq_dict(in_file_path: str, in_dict: dict, encoding=ENCODING, delim
     in_file.close()
 
     if do_print:
-        logging(f'# falcon_util.file_to_freq_dict() size : {len(in_dict)}')
+        logging(f'# falcon_util.load_freq_dict() size : {len(in_dict)}')
     return in_dict
 
 
-def file_to_set(in_file_path: str, in_set: set, encoding=ENCODING, do_print=False):
+def load_set(in_file_path: str, in_set: set, encoding=ENCODING, do_print=False):
     in_file = open_file(in_file_path, encoding, mode='r')
 
     while 1:
@@ -220,8 +179,30 @@ def file_to_set(in_file_path: str, in_set: set, encoding=ENCODING, do_print=Fals
     in_file.close()
     
     if do_print:
-        logging(f'# falcon_util.file_to_set() size : {len(in_set)}')
+        logging(f'# falcon_util.load_set() size : {len(in_set)}')
     return in_set
+
+
+def write_dict_freq(out_dict: dict, out_file_path: str, encoding=ENCODING, delim=DELIM_KEY):
+    file = open_file(out_file_path, encoding, 'w')
+
+    items = out_dict.items()
+    for item in items:
+        file.write(f"{item[0]}{delim}{item[1]}\n")
+    
+    file.close()
+
+
+def write_set(out_set: set, out_file_path: str, encoding=ENCODING, is_reverse=False):
+    file = open_file(out_file_path, encoding, 'w')
+
+    out_list = list(out_set)
+    out_list.sort(reverse = is_reverse)
+
+    for i in range(len(out_list)):
+        file.write(f"{out_list[i]}\n")
+    
+    file.close()
 
 
 def window(seq, n=2):
@@ -289,28 +270,6 @@ def add_dict_freq(in_dict: dict, key, value=1):
         in_dict[key] = value
 
 
-def write_dict_freq(out_dict: dict, out_file_path: str, encoding=ENCODING, delim=DELIM_KEY):
-    file = open_file(out_file_path, encoding, 'w')
-
-    items = out_dict.items()
-    for item in items:
-        file.write(f"{item[0]}{delim}{item[1]}\n")
-    
-    file.close()
-
-
-def write_set(out_set: set, out_file_path: str, encoding=ENCODING, is_reverse=False):
-    file = open_file(out_file_path, encoding, 'w')
-
-    out_list = list(out_set)
-    out_list.sort(reverse = is_reverse)
-
-    for i in range(len(out_list)):
-        file.write(f"{out_list[i]}\n")
-    
-    file.close()
-
-
 def trim(input_list: list, rm_empty_flag: bool):
     if not rm_empty_flag:
         for i in range(len(input_list)):
@@ -326,6 +285,51 @@ def trim(input_list: list, rm_empty_flag: bool):
                 result.append(str(input_list[i]).strip())
         
         return result
+
+
+def json_str_to_dict(json_str: str):
+    try:
+        # 문자열을 읽을 때는, loads() 호출
+        return json.loads(json_str)
+
+    except Exception as e:
+        logging_error("json_str_to_dict()", e)
+        return None
+
+
+def to_json_str(input, indent=4):
+    try:
+        return json.dumps(input, ensure_ascii=False, indent=indent)
+
+    except Exception as e:
+        logging_error("to_json_str()", e)
+        return ""
+
+
+def load_json_file(in_file_path: str, encoding=ENCODING, do_print=False):
+    try:
+        if exists(in_file_path):
+            file = open_file(in_file_path, encoding, 'r')
+
+            # 파일을 읽을 때는, load() 호출
+            datas = json.load(file)
+
+            if do_print:
+                logging(f'# falcon_util.load_json_file() datas size : {len(datas)}, in_file_path : {in_file_path}')
+
+            return datas
+
+    except Exception as e:
+        logging_error("# falcon_util.load_json_file() error : ", e)
+        return None
+
+    return None
+
+
+def write_json_file(json_dict, out_file_path, encoding=ENCODING, indent=4):
+    out_file = open_file(out_file_path, encoding, 'w')
+    out_file.write(to_json_str(json_dict, indent))
+    out_file.close()
 
 
 def check_gpu_memory(devices=[0], prefix='', do_print=True):

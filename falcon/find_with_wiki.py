@@ -157,7 +157,7 @@ def convert_to_json(in_file_path, out_file_path, select_ids: set):
         cnt += 1
     in_file.close()
 
-    write_json_to_file(ents, out_file_path)
+    write_json_file(ents, out_file_path)
     print(f'find_with_wiki.convert_to_json() {in_file_path} -> {out_file_path}\n')
 
 

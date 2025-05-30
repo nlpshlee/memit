@@ -128,7 +128,7 @@ def log_parsing(in_file_path: str, out_file_path: str, identical_num=-1):
     in_file.close()
 
     write_of_log_parsing(simple_results, out_file_path.format('_(simple).txt'))
-    write_json_to_file(simple_results, out_file_path.format('_(simple).json'))
+    write_json_file(simple_results, out_file_path.format('_(simple).json'))
 
     if identical_num > 0:
         write_performance_matrix(identical_num, num_edits, simple_results, out_file_path.format('_p_matrix.txt'))
