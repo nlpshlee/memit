@@ -212,6 +212,4 @@ if __name__ == "__main__":
     # run_250523_make_triple_with_wiki(out_path, 10, 18000, 19000)
     # run_250523_make_triple_with_wiki(out_path, 10, 19000, 20000)
     run_250523_make_triple_with_wiki(out_path, 10, 20000, 21000)
-    run_250523_make_triple_with_wiki(out_path, 10, 21000, 22000)
-    run_250523_make_triple_with_wiki(out_path, 10, 22000, 23000)
 

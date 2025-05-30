@@ -328,27 +328,49 @@ def trim(input_list: list, rm_empty_flag: bool):
         return result
 
 
-def print_gpu_memory(device=0, prefix=''):
+def check_gpu_memory(devices=[0], prefix='', do_print=True):
     if not torch.cuda.is_available():
-        logging(f'# falcon_util.print_gpu_memory() [GPU] CUDA not available')
+        if do_print:
+            logging(f'# falcon_util.check_gpu_memory() [GPU] CUDA not available')
+
+        return -1, -1
     else:
-        # torch에서 추적하는 할당/예약 메모리
-        allocated = torch.cuda.memory_allocated(device)
-        reserved  = torch.cuda.memory_reserved(device)
-        logging(f'\n# falcon_util.print_gpu_memory() {prefix} [GPU:{device}] Allocated: {allocated/1e9:.2f} GB | Reserved: {reserved/1e9:.2f} GB\n')
+        allocated_all, reserved_all = 0, 0
 
-        # 최대/최소 사용량 (optional)
-        # max_alloc = torch.cuda.max_memory_allocated(device)
-        # max_resv  = torch.cuda.max_memory_reserved(device)
-        # logging(f'# falcon_util.print_gpu_memory() {prefix} [GPU:{device}] Max allocated: {max_alloc/1e9:.2f} GB | Max reserved: {max_resv/1e9:.2f} GB')
+        for device in devices:
+            allocated = torch.cuda.memory_allocated(device)
+            reserved  = torch.cuda.memory_reserved(device)
+            allocated_all += allocated
+            reserved_all += reserved
+
+            # 최대/최소 사용량 (optional)
+            # max_alloc = torch.cuda.max_memory_allocated(device)
+            # max_resv  = torch.cuda.max_memory_reserved(device)
+            # logging(f'# falcon_util.check_gpu_memory() {prefix} [GPU:{device}] Max allocated: {max_alloc/1e9:.2f} GB | Max reserved: {max_resv/1e9:.2f} GB')
+
+            if do_print:
+                logging(f'# falcon_util.check_gpu_memory() {prefix} [GPU:{device}] Allocated: {allocated/1e9:.2f} GB | Reserved: {reserved/1e9:.2f} GB')
+        if do_print:
+            if len(devices) > 1:
+                logging(f'# falcon_util.check_gpu_memory() {prefix} [GPU:Total] Allocated: {allocated_all/1e9:.2f} GB | Reserved: {reserved_all/1e9:.2f} GB\n')
+            else:
+                logging('')
+        
+        return allocated_all, reserved_all
 
 
-def clear_gpu_memory(device=0):
+def clear_gpu_memory(devices=[0], do_print=True):
     if not torch.cuda.is_available():
-        logging('# falcon_util.clear_gpu_memory() [GPU] CUDA not available')
+        if do_print:
+            logging(f'# falcon_util.clear_gpu_memory() [GPU] CUDA not available')
     else:
-        print_gpu_memory(device, '[Before Clear]')
+        allocated1, reserved1 = check_gpu_memory(devices, '[Before Clear Memory]', do_print)
         gc.collect()
         torch.cuda.empty_cache()
-        print_gpu_memory(device, '[After Clear]')
+        allocated2, reserved2 = check_gpu_memory(devices, '[After Clear Memory]', do_print)
+
+        if do_print:
+            cleared_allocated = (allocated2-allocated1)
+            cleared_reserved = (reserved2-reserved1)
+            logging(f'# falcon_util.clear_gpu_memory() [GPU:Total] [Cleared] Allocated: {cleared_allocated/1e9:.2f} GB | Reserved: {cleared_reserved/1e9:.2f} GB\n')
 

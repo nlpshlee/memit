@@ -157,7 +157,7 @@ class ModelEditor:
         # 실험 결과를 저장하는 파일명 템플릿
         self._case_result_template = str(self._run_dir / '{}_edits-case_{}.json')
         
-        print(f'# ModelEditor.check_continue_from_run() Results will be stored at [{self._run_dir}]')
+        print(f'# ModelEditor.check_continue_from_run() Results will be stored at [{self._run_dir}]\n')
     
 
     def _set_params(self, hparams_mod: dict=None):
