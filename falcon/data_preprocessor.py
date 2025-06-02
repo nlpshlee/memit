@@ -45,7 +45,7 @@ def get_subject_groups(datas, do_print=True):
     return subject_groups
 
 
-def get_subject_groups_list(datas, do_print=True):
+def get_subject_groups_list(datas, min_identical, do_print=True):
     subject_groups = get_subject_groups(datas, do_print)
 
     group_sizes = {}
@@ -59,12 +59,12 @@ def get_subject_groups_list(datas, do_print=True):
     for subject in subject_groups.keys():
         subject_group = subject_groups[subject]
         group_size = len(subject_group)
-        subject_groups_list[group_size-1].extend(subject_group)
+        subject_groups_list[group_size-min_identical].extend(subject_group)
     
     if do_print:
         print(f'# data_preprocessor.get_subject_groups_list() print\n\tgroup sizes : {group_sizes}\n')
         for i, subject_groups in enumerate(subject_groups_list):
-            print(f'\tgroup size : {i+1}, group value size : {len(subject_groups)}')
+            print(f'\tgroup size : {i+min_identical}, group value size : {len(subject_groups)}')
         print()
 
     return subject_groups_list
@@ -113,9 +113,9 @@ def write_datas(out_file_path: str, datas, ext_n=-1, ext_rn=-1, do_simple=False)
     print(f'# data_preprocessor.write_datas() data size : {len(datas)} -> {out_file_path}')
 
 
-def make_datas_multiple(datas1, datas2, out_file_path: str, step=10):
+def make_datas_multiple_increase(datas1, datas2, out_file_path: str, step=10):
     len1, len2 = len(datas1), len(datas2)
-    print(f'\n# data_preprocessor.make_datas_multiple() len1 : {len1}, len2 : {len2}')
+    print(f'\n# data_preprocessor.make_datas_multiple_increase() len1 : {len1}, len2 : {len2}')
 
     if len1 == len2:
         write_datas(out_file_path.format(f'{step}:0'), datas1)
@@ -342,7 +342,7 @@ def get_model_editor(num_edits=100):
 
 
 
-def run1(datas, out_path):
+def run1(datas, out_path, min_identical=1, ext_n=-1, ext_subject_n=-1):
     if datas is None:
         model_editor = get_model_editor()
         model_editor.load_data()
@@ -356,34 +356,22 @@ def run1(datas, out_path):
             ...
         ]
     '''
-    subject_groups_list = get_subject_groups_list(datas, True)
-    ext_n = 1000
+    subject_groups_list = get_subject_groups_list(datas, min_identical, True)
 
     for i in range(len(subject_groups_list)):
-        out_file_path = out_path + f'/multi_counterfact_identical{i+1}' + '_{}.json'
+        identical_num = i+min_identical
+
+        out_file_path = out_path + f'/multi_counterfact_identical{identical_num}' + '_{}.json'
         write_datas(out_file_path, subject_groups_list[i])
 
-        if i == 0:
-            write_datas(out_file_path, subject_groups_list[i], ext_rn=ext_n)
-        elif i == 1:
-            write_datas(out_file_path, subject_groups_list[i], ext_n=ext_n)
-
-
-    # 1. Multiple Identical Subjects datasets
-    in_file_path1 = out_path + f'/multi_counterfact_identical1_ext_rn_{ext_n}.json'
-    in_file_path2 = out_path + f'/multi_counterfact_identical2_ext_n_{ext_n}.json'
-    out_file_path = out_path + f'/multiple_identical_subjects/mcf_multiple_identical_subjects_{ext_n}' + '_{}.json'
-    datas1 = load_datas(in_file_path1)
-    datas2 = load_datas(in_file_path2)
-    make_datas_multiple(datas1, datas2, out_file_path)
-
-    # 2. Sequential Identical Subjects datasets
-    in_file_path1 = out_path + f'/multi_counterfact_identical2_ext_n_{ext_n}.json'
-    in_file_path2 = out_path + f'/multi_counterfact_identical3_all_105.json'
-    in_file_path3 = out_path + f'/multi_counterfact_identical4_all_20.json'
-    out_file_path = out_path + '/sequential_identical_subjects/{}/mcf_sequential_identical{}_subjects_{}.json'
-    datas_list = [load_datas(in_file_path1), load_datas(in_file_path2), load_datas(in_file_path3)]
-    make_datas_sequential(datas_list, out_file_path)
+        if ext_subject_n > 0:
+            ext_n = ext_subject_n * identical_num
+        
+        if len(subject_groups_list[i]) > ext_n:
+            if identical_num == 1:
+                write_datas(out_file_path, subject_groups_list[i], ext_rn=ext_n)
+            else:
+                write_datas(out_file_path, subject_groups_list[i], ext_n=ext_n)
 
 
 def run2(file_names: list, out_path: str):
@@ -411,14 +399,30 @@ def run4(file_names: list, out_path: str):
 
 
 
-if __name__ == "__main__":
+def run_main_org():
     home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data'
-    out_path = f'{data_dir}/preprocessing'
+    out_path = f'{data_dir}/preprocessing_org'
     
-    in_file_path = f'{data_dir}/multi_counterfact.json'
-    # datas = load_datas(in_file_path)
-    # run1(datas, out_path)
+    in_file_path = f'{data_dir}/___org_multi_counterfact.json'
+    datas = load_datas(in_file_path)
+
+    ext_n = 1000
+    run1(datas, out_path, min_identical=1, ext_n=ext_n)
+
+    in_file_path1 = out_path + f'/multi_counterfact_identical1_ext_rn_{ext_n}.json'
+    in_file_path2 = out_path + f'/multi_counterfact_identical2_ext_n_{ext_n}.json'
+    out_file_path = out_path + f'/multiple_identical_subjects/mcf_multiple_identical_subjects_{ext_n}' + '_{}.json'
+    datas1, datas2 = load_datas(in_file_path1), load_datas(in_file_path2)
+    make_datas_multiple_increase(datas1, datas2, out_file_path)
+
+    in_file_path1 = out_path + f'/multi_counterfact_identical2_ext_n_{ext_n}.json'
+    in_file_path2 = out_path + f'/multi_counterfact_identical3_all_105.json'
+    in_file_path3 = out_path + f'/multi_counterfact_identical4_all_20.json'
+    out_file_path = out_path + '/sequential_identical_subjects/{}/mcf_sequential_identical{}_subjects_{}.json'
+    datas_list = [load_datas(in_file_path1), load_datas(in_file_path2), load_datas(in_file_path3)]
+    make_datas_sequential(datas_list, out_file_path)
+
 
     file_names = ['multi_counterfact_20877{}.json',
                   'multi_counterfact_identical1_all_19366{}.json',
@@ -427,17 +431,11 @@ if __name__ == "__main__":
                   'multi_counterfact_identical2_ext_n_1000{}.json',
                   'multi_counterfact_identical3_all_105{}.json',
                   'multi_counterfact_identical4_all_20{}.json']
-    # run2(file_names, out_path)
+    run2(file_names, out_path)
     run4(file_names, out_path)
 
-    file_names = ['multi_counterfact_1000{}.json',
-                  'multi_counterfact_10000{}.json',
-                  'multi_counterfact_identical1_all_19366{}.json',
-                  'multi_counterfact_identical2_all_1386{}.json']
-    # run2(file_names, out_path)
-
-    in_path = f'{data_dir}/preprocessing/sequential_identical_subjects/each'
-    # run3(in_path)
+    in_path = f'{out_path}/sequential_identical_subjects/each'
+    run3(in_path)
 
     file_names = ['mcf_multiple_identical_subjects_1000_10:0{}.json',
                   'mcf_multiple_identical_subjects_1000_9:1{}.json',
@@ -450,6 +448,64 @@ if __name__ == "__main__":
                   'mcf_multiple_identical_subjects_1000_2:8{}.json',
                   'mcf_multiple_identical_subjects_1000_1:9{}.json',
                   'mcf_multiple_identical_subjects_1000_0:10{}.json']
-    out_path = f'{data_dir}/preprocessing/multiple_identical_subjects'
-    # run2(file_names, out_path)
+    out_path = f'{out_path}/multiple_identical_subjects'
+    run2(file_names, out_path)
+
+
+def run_main_250531():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data'
+
+    in_path = f'{data_dir}/find_with_wiki_identical_subjects'
+    out_path = f'{data_dir}/preprocessing_new'
+
+    ext_n = 1000
+    ext_subject_n=100
+
+    in_file_path = f'{in_path}/3. find_with_wiki_identical_subjects_convert_mcf.json'
+    datas = load_datas(in_file_path)
+    run1(datas, out_path, min_identical=2, ext_subject_n=ext_subject_n)
+    run1(datas, out_path, min_identical=2, ext_n=ext_n)
+
+    in_file_path1 = out_path + f'/multi_counterfact_identical1_ext_rn_{ext_n}.json'
+    for identical_num in [2, 3, 4, 5, 6, 7, 8, 9, 10]:
+        in_file_path2 = out_path + f'/multi_counterfact_identical{identical_num}_ext_n_{ext_n}.json'
+        out_file_path = out_path + f'/multiple_identical_subjects/identical{identical_num}/mcf_multiple_identical{identical_num}_subjects_{ext_n}' + '_{}.json'
+        datas1, datas2 = load_datas(in_file_path1), load_datas(in_file_path2)
+        make_datas_multiple_increase(datas1, datas2, out_file_path)
+    
+    datas_list = []
+    out_file_path = out_path + '/sequential_identical_subjects/{}/mcf_sequential_identical{}_subjects_{}.json'
+    for identical_num in [2, 3, 4, 5, 6, 7, 8, 9, 10]:
+        _ext_n = identical_num * ext_subject_n
+        in_file_path = out_path + f'/multi_counterfact_identical{identical_num}_ext_n_{_ext_n}.json'
+        datas_list.append(load_datas(in_file_path))
+    make_datas_sequential(datas_list, out_file_path)
+
+    file_names = ['mcf_multiple_identical{}_subjects_1000_10:0{}.json',
+                  'mcf_multiple_identical{}_subjects_1000_9:1{}.json',
+                  'mcf_multiple_identical{}_subjects_1000_8:2{}.json',
+                  'mcf_multiple_identical{}_subjects_1000_7:3{}.json',
+                  'mcf_multiple_identical{}_subjects_1000_6:4{}.json',
+                  'mcf_multiple_identical{}_subjects_1000_5:5{}.json',
+                  'mcf_multiple_identical{}_subjects_1000_4:6{}.json',
+                  'mcf_multiple_identical{}_subjects_1000_3:7{}.json',
+                  'mcf_multiple_identical{}_subjects_1000_2:8{}.json',
+                  'mcf_multiple_identical{}_subjects_1000_1:9{}.json',
+                  'mcf_multiple_identical{}_subjects_1000_0:10{}.json']
+    for identical_num in [2, 3, 4, 5, 6, 7, 8, 9, 10]:
+        _file_names = [file_name.format(identical_num, '{}') for file_name in file_names]
+        _out_path = f'{out_path}/multiple_identical_subjects/identical{identical_num}'
+        run2(_file_names, _out_path)
+    
+    in_path = f'{out_path}/sequential_identical_subjects/each'
+    run3(in_path)
+
+
+
+
+
+if __name__ == "__main__":
+    # run_main_org()
+    run_main_250531()
 

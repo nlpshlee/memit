@@ -1,4 +1,4 @@
-import os, sys, json, string, re, gc
+import os, sys, json, string, re, gc, random
 from itertools import islice
 
 import torch
@@ -270,6 +270,18 @@ def add_dict_freq(in_dict: dict, key, value=1):
         in_dict[key] = value
 
 
+def get_random_key(in_dict: dict, ext_n=1):
+    keys = list(in_dict.keys())
+    key_len = len(keys)
+    ext_n = min(ext_n, key_len)
+
+    if ext_n == key_len:
+        return keys
+    else:
+        result = random.sample(keys, ext_n)
+        return result
+
+
 def trim(input_list: list, rm_empty_flag: bool):
     if not rm_empty_flag:
         for i in range(len(input_list)):
@@ -326,9 +338,9 @@ def load_json_file(in_file_path: str, encoding=ENCODING, do_print=False):
     return None
 
 
-def write_json_file(json_dict, out_file_path, encoding=ENCODING, indent=4):
+def write_json_file(in_json, out_file_path, encoding=ENCODING, indent=4):
     out_file = open_file(out_file_path, encoding, 'w')
-    out_file.write(to_json_str(json_dict, indent))
+    out_file.write(to_json_str(in_json, indent))
     out_file.close()
 
 
