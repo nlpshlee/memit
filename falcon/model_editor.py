@@ -112,7 +112,7 @@ class ModelEditor:
         self._performances = [[], [], []]
 
         self._do_eval_org_model = False
-        self._do_eval_new_model = True
+        self._do_eval_new_model = False
 
 
     def _print_init(self):

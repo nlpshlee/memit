@@ -11,6 +11,12 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 
 
+class MODE:
+    ORG = 1
+    TWO_STEP = 2
+    ALL = ORG | TWO_STEP
+
+
 def load_datas(in_file_path: str):
     in_file = open_file(in_file_path, mode='r')
     datas = json.load(in_file)
@@ -41,6 +47,108 @@ def get_model_editor(num_edits=100, hparams_fname_suffix='', hparams_mod=None, a
     )
 
     return model_editor
+
+
+def copy_weights(model_editor: ModelEditor, layers_subject: list, layers_relation: list):
+    layers_all = deepcopy(layers_subject)
+    layers_all.extend(layers_relation)
+    print(f'### falcon.tester.copy_weights() layers_subject : {layers_subject}')
+    print(f'### falcon.tester.copy_weights() layers_relation : {layers_relation}')
+    print(f'### falcon.tester.copy_weights() layers_all : {layers_all}\n')
+
+    return model_editor.copy_weights(layers_all)
+
+
+def run_multiple(data_dir: str, identical_nums: list, num_edits: int, mode: int,
+                 alg_name='MEMIT', model_name='gpt2-xl', layers_subject=[13, 14, 15, 16, 17], layers_relation=[26, 27, 28, 29, 30]):
+
+    in_path = f'{data_dir}/multiple_identical_subjects'
+    file_name = 'mcf_multiple_identical{}_subjects_{}_{}:{}{}.json'
+
+    model_editor = get_model_editor(num_edits, alg_name=alg_name, model_name=model_name)
+    weights_copy = copy_weights(model_editor, layers_subject, layers_relation)
+
+    for identical_num in identical_nums:
+        for i in tqdm([10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]):
+            in_file_path = f'{in_path}/identical{identical_num}/' + file_name.format(identical_num, num_edits, i, (10-i), '')
+            datas_subject = load_datas(in_file_path)
+
+            model_editor._do_eval_new_model = False
+            do_edit_test = False
+            if check_option(mode, MODE.ORG):
+                model_editor._do_eval_new_model = True
+                do_edit_test = True
+            
+            # 1. 기존 Subject 마지막 토큰으로 모델 편집
+            model_editor.set_params_external({'layers': layers_subject})
+            model_editor.edit_ext_datas(datas_subject, False, True, do_edit_test, False, False, False)
+
+            # 2. 제안 방법 Subject-Relation Two-Step 모델 편집
+            if check_option(mode, MODE.TWO_STEP):
+                in_file_path = f'{in_path}/identical{identical_num}/' + file_name.format(identical_num, num_edits, i, (10-i), '_sr_swap_post')
+                datas_relation = load_datas(in_file_path)
+
+                model_editor._do_eval_new_model = True
+                model_editor.set_params_external({'layers': layers_relation})
+                model_editor.edit_ext_datas(datas_relation, False, True, True, False, False, False)
+            
+            # 3. 가중치 복원 및 결과 폴더 재설정
+            model_editor.restore_weights(weights_copy)
+            model_editor.check_continue_from_run()
+
+
+def run_sequential(data_dir: str, identical_nums: list, num_edits_list: list, mode: int,
+                   alg_name='MEMIT', model_name='gpt2-xl', layers_subject=[13, 14, 15, 16, 17], layers_relation=[26, 27, 28, 29, 30]):
+
+    in_path = f'{data_dir}/sequential_identical_subjects/each'
+    file_name = 'mcf_sequential_identical{}_subjects_batch{}{}.json'
+
+    model_editor = get_model_editor(alg_name=alg_name, model_name=model_name)
+    weights_copy = copy_weights(model_editor, layers_subject, layers_relation)
+
+    for identical_num, num_edits in zip(identical_nums, num_edits_list):
+        model_editor._num_edits = num_edits
+        model_editor._do_eval_org_model = False
+        model_editor._print_init()
+
+        datas_batchs = []
+
+        for batch_idx in tqdm(range(1, identical_num+1)):
+            print(f'### falcon.tester.run_sequential() identical : {identical_num}, batch_idx : {batch_idx}, batch_size : {num_edits}\n')
+
+            in_file_path = f'{in_path}/identical{identical_num}/' + file_name.format(identical_num, batch_idx, '')
+            datas_subject = load_datas(in_file_path)
+
+            # 1. 기존 Subject 마지막 토큰으로 모델 편집
+            model_editor.set_params_external({'layers': layers_subject})
+            model_editor.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+
+            # 2. 제안 방법 Subject-Relation Two-Step 모델 편집
+            if check_option(mode, MODE.TWO_STEP):
+                in_file_path = f'{in_path}/identical{identical_num}/' + file_name.format(identical_num, batch_idx, '_sr_swap_post')
+                datas_relation = load_datas(in_file_path)
+
+                model_editor.set_params_external({'layers': layers_relation})
+                model_editor.edit_ext_datas(datas_relation, False, True, False, False, False, False)
+            
+            # 3. 배치 단위 성능 측정
+            datas_batchs.append(datas_subject)
+            print(f'\n### falcon.tester.run_sequential() batch size : {len(datas_batchs)}\n')
+
+            # 마지막 배치 스텝에서 원래 논문 성능 평가를 위한 실험 진행
+            if batch_idx == identical_num:
+                model_editor._do_eval_org_model = True
+
+            for i, datas_batch in enumerate(datas_batchs):
+                print(f'### falcon.tester.run_sequential() batch_{i+1} data size : {len(datas_batch)}\n')
+                model_editor.edit_ext_datas(datas_batch, True, False, False, False, False, False)
+        
+        # 4. 가중치 복원 및 결과 폴더 재설정
+        model_editor.restore_weights(weights_copy)
+        model_editor.check_continue_from_run()
+
+
+
 
 
 def run():
@@ -628,6 +736,39 @@ def run_250527_sequential(alg_name='MEMIT', model_name='gpt2-xl', layers_subject
         model_editor.check_continue_from_run()
 
 
+def run_250602_multiple_incremental():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing_new'
+    
+    identical_nums = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+    num_edits = 1000
+    mode = MODE.ALL
+    alg_name='MEMIT'
+    model_name='gpt2-xl'
+    layers_subject=[13, 14, 15, 16, 17]
+    layers_relation=[26, 27, 28, 29, 30]
+
+    run_multiple(data_dir, identical_nums, num_edits, mode,
+                 alg_name, model_name, layers_subject, layers_relation)
+
+
+def run_250602_sequential_incremental():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing_new'
+
+    identical_nums = [2, 3, 4, 10]
+    num_edits_list = [500, 35, 5, 100]
+    alg_name='MEMIT'
+    model_name='gpt2-xl'
+    layers_subject=[13, 14, 15, 16, 17]
+    layers_relation=[26, 27, 28, 29, 30]
+
+    run_sequential(data_dir, identical_nums, num_edits_list, MODE.ORG,
+                   alg_name, model_name, layers_subject, layers_relation)
+    run_sequential(data_dir, identical_nums, num_edits_list, MODE.TWO_STEP,
+                   alg_name, model_name, layers_subject, layers_relation)
+
+
 if __name__ == "__main__":
     # run()
     # run_241201()
@@ -645,5 +786,7 @@ if __name__ == "__main__":
     # run_250514_mend_multiple()
     # run_250515_mend_sequential()
     # run_250517_multiple('MEMIT', 'EleutherAI/gpt-j-6B', [3, 4, 5, 6, 7, 8], [11, 12, 13, 14, 15, 16], mode=2)
-    run_250527_sequential('MEMIT', 'EleutherAI/gpt-j-6B', [3, 4, 5, 6, 7, 8], [11, 12, 13, 14, 15, 16], mode=2)
+    # run_250527_sequential('MEMIT', 'EleutherAI/gpt-j-6B', [3, 4, 5, 6, 7, 8], [11, 12, 13, 14, 15, 16], mode=2)
+    # run_250602_multiple_incremental()
+    run_250602_sequential_incremental()
 
