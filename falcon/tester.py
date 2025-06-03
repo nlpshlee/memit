@@ -743,10 +743,10 @@ def run_250602_multiple_incremental():
     identical_nums = [2, 3, 4, 5, 6, 7, 8, 9, 10]
     num_edits = 1000
     mode = MODE.ALL
-    alg_name='MEMIT'
-    model_name='gpt2-xl'
-    layers_subject=[13, 14, 15, 16, 17]
-    layers_relation=[26, 27, 28, 29, 30]
+    alg_name = 'MEMIT'
+    model_name = 'gpt2-xl'
+    layers_subject = [13, 14, 15, 16, 17]
+    layers_relation = [26, 27, 28, 29, 30]
 
     run_multiple(data_dir, identical_nums, num_edits, mode,
                  alg_name, model_name, layers_subject, layers_relation)
@@ -758,10 +758,10 @@ def run_250602_sequential_incremental():
 
     identical_nums = [2, 3, 4, 10]
     num_edits_list = [500, 35, 5, 100]
-    alg_name='MEMIT'
-    model_name='gpt2-xl'
-    layers_subject=[13, 14, 15, 16, 17]
-    layers_relation=[26, 27, 28, 29, 30]
+    alg_name = 'MEMIT'
+    model_name = 'gpt2-xl'
+    layers_subject = [13, 14, 15, 16, 17]
+    layers_relation = [26, 27, 28, 29, 30]
 
     run_sequential(data_dir, identical_nums, num_edits_list, MODE.ORG,
                    alg_name, model_name, layers_subject, layers_relation)

@@ -412,7 +412,7 @@ def run_main_org():
 
     in_file_path1 = out_path + f'/multi_counterfact_identical1_ext_rn_{ext_n}.json'
     in_file_path2 = out_path + f'/multi_counterfact_identical2_ext_n_{ext_n}.json'
-    out_file_path = out_path + f'/multiple_identical_subjects/mcf_multiple_identical_subjects_{ext_n}' + '_{}.json'
+    out_file_path = out_path + f'/multiple_identical_subjects/identical2/mcf_multiple_identical2_subjects_{ext_n}' + '_{}.json'
     datas1, datas2 = load_datas(in_file_path1), load_datas(in_file_path2)
     make_datas_multiple_increase(datas1, datas2, out_file_path)
 
@@ -437,18 +437,18 @@ def run_main_org():
     in_path = f'{out_path}/sequential_identical_subjects/each'
     run3(in_path)
 
-    file_names = ['mcf_multiple_identical_subjects_1000_10:0{}.json',
-                  'mcf_multiple_identical_subjects_1000_9:1{}.json',
-                  'mcf_multiple_identical_subjects_1000_8:2{}.json',
-                  'mcf_multiple_identical_subjects_1000_7:3{}.json',
-                  'mcf_multiple_identical_subjects_1000_6:4{}.json',
-                  'mcf_multiple_identical_subjects_1000_5:5{}.json',
-                  'mcf_multiple_identical_subjects_1000_4:6{}.json',
-                  'mcf_multiple_identical_subjects_1000_3:7{}.json',
-                  'mcf_multiple_identical_subjects_1000_2:8{}.json',
-                  'mcf_multiple_identical_subjects_1000_1:9{}.json',
-                  'mcf_multiple_identical_subjects_1000_0:10{}.json']
-    out_path = f'{out_path}/multiple_identical_subjects'
+    file_names = ['mcf_multiple_identical2_subjects_1000_10:0{}.json',
+                  'mcf_multiple_identical2_subjects_1000_9:1{}.json',
+                  'mcf_multiple_identical2_subjects_1000_8:2{}.json',
+                  'mcf_multiple_identical2_subjects_1000_7:3{}.json',
+                  'mcf_multiple_identical2_subjects_1000_6:4{}.json',
+                  'mcf_multiple_identical2_subjects_1000_5:5{}.json',
+                  'mcf_multiple_identical2_subjects_1000_4:6{}.json',
+                  'mcf_multiple_identical2_subjects_1000_3:7{}.json',
+                  'mcf_multiple_identical2_subjects_1000_2:8{}.json',
+                  'mcf_multiple_identical2_subjects_1000_1:9{}.json',
+                  'mcf_multiple_identical2_subjects_1000_0:10{}.json']
+    out_path = f'{out_path}/multiple_identical_subjects/identical2'
     run2(file_names, out_path)
 
 
