@@ -25,10 +25,11 @@ def load_datas(in_file_path: str):
     return datas
 
 
-def get_model_editor(num_edits=100, hparams_fname_suffix='', hparams_mod=None, alg_name='MEMIT', model_name='gpt2-xl'):
+def get_model_editor(num_edits=100, hparams_fname_suffix='', hparams_mod=None, alg_name='MEMIT', model_name='gpt2-xl',
+                     do_init_model=True):
+
     hparams_fname = model_name + '{}.json'.format(hparams_fname_suffix)
     ds_name = 'mcf'
-    # num_edits = 100
 
     dataset_size_limit = None
     continue_from_run = None
@@ -43,7 +44,7 @@ def get_model_editor(num_edits=100, hparams_fname_suffix='', hparams_mod=None, a
         alg_name, model_name, hparams_fname, ds_name,
         dataset_size_limit, continue_from_run, skip_generation_tests,
         generation_test_interval, conserve_memory, dir_name, num_edits, use_cache, output_hidden_states,
-        hparams_mod
+        hparams_mod, do_init_model
     )
 
     return model_editor
@@ -769,6 +770,48 @@ def run_250602_sequential_incremental():
                    alg_name, model_name, layers_subject, layers_relation)
 
 
+def run_250723_save_and_load(do_save=False, do_load=False):
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing_org'
+    model_dir = f'{home_dir}/models'
+
+    identical_nums = [3]
+    num_edits_list = [35]
+    alg_name = 'MEMIT'
+    model_name = 'gpt2-xl'
+    layers_subject = [13, 14, 15, 16, 17]
+    # layers_relation = [26, 27, 28, 29, 30]
+
+    in_path = f'{data_dir}/sequential_identical_subjects/each'
+    file_name = 'mcf_sequential_identical{}_subjects_batch{}{}.json'
+
+    model_editor = get_model_editor(alg_name=alg_name, model_name=model_name, do_init_model=(not do_load))
+    check_gpu_memory()
+
+    for identical_num, num_edits in zip(identical_nums, num_edits_list):
+        model_editor._num_edits = num_edits
+        model_editor._print_init()
+
+        for batch_idx in tqdm(range(1, identical_num+1)):
+            print(f'### falcon.tester.run_250723_save_and_load() identical : {identical_num}, batch_idx : {batch_idx}, batch_size : {num_edits}\n')
+
+            in_file_path = f'{in_path}/identical{identical_num}/' + file_name.format(identical_num, batch_idx, '')
+            datas_subject = load_datas(in_file_path)
+
+            save_path = f'{model_dir}/identical{identical_num}_{identical_num*num_edits}_batch_{batch_idx}'
+
+            if do_save:
+                model_editor.set_params_external({'layers': layers_subject})
+                model_editor.edit_ext_datas(datas_subject, False, True, True, False, False, False)
+                model_editor.model_save(save_path)
+            if do_load:
+                model_editor.model_load(save_path)
+                check_gpu_memory()
+                model_editor.edit_ext_datas(datas_subject, True, False, False, False, False, False)
+            break
+        break
+
+
 if __name__ == "__main__":
     # run()
     # run_241201()
@@ -788,5 +831,6 @@ if __name__ == "__main__":
     # run_250517_multiple('MEMIT', 'EleutherAI/gpt-j-6B', [3, 4, 5, 6, 7, 8], [11, 12, 13, 14, 15, 16], mode=2)
     # run_250527_sequential('MEMIT', 'EleutherAI/gpt-j-6B', [3, 4, 5, 6, 7, 8], [11, 12, 13, 14, 15, 16], mode=2)
     # run_250602_multiple_incremental()
-    run_250602_sequential_incremental()
+    # run_250602_sequential_incremental()
+    run_250723_save_and_load(do_load=True)
 

@@ -3,6 +3,7 @@ _backup*
 logs*
 results*
 data
+models
 !notebooks/data
 *_tmp_*_.json
 *_kmeng01g1gn*

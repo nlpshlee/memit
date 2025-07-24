@@ -74,7 +74,8 @@ class ModelEditor:
                  num_edits=1,
                  use_cache=False,
                  output_hidden_states=False,
-                 hparams_mod=None
+                 hparams_mod=None,
+                 do_init_model=True
                 ):
         self._alg_name = alg_name
         self._model_name = model_name
@@ -103,7 +104,8 @@ class ModelEditor:
         self._model: AutoModelForCausalLM
         self._tok: AutoTokenizer
         self._weights_copy = None
-        self._init_model()
+        if do_init_model:
+            self._init_model()
 
         self._cache_template = None
         self._check_cache()
@@ -436,6 +438,32 @@ class ModelEditor:
                     nethook.get_parameter(self._model, k)[...] = v.to('cuda')
 
                 print(f'# ModelEditor.restore_weights() external weights restored\n')
+
+
+    def model_save(self, save_path: str):
+        print(f'\n# ModelEditor.model_save() model save start : {save_path}')
+        try:
+            make_parent(f'{save_path}/#%#.temp')
+            self._model.save_pretrained(save_path)
+            self._tok.save_pretrained(save_path)
+            print(f'# ModelEditor.model_save() model save complet\n')
+        except Exception as e:
+            print(f'# ModelEditor.model_save() model save fail, error : {e}\n')
+
+
+    def model_load(self, load_path: str):
+        print(f'\n# ModelEditor.model_load() model load start : {load_path}')
+        try:
+            self._model = AutoModelForCausalLM.from_pretrained(
+                load_path,
+                output_hidden_states=self._output_hidden_states
+            ).cuda()
+            self._tok = AutoTokenizer.from_pretrained(load_path)
+            print(f'\tmodel : {type(self._model)}')
+            print(f'\ttokenizer : {type(self._tok)}')
+            print(f'# ModelEditor.model_load() model load complet\n')
+        except Exception as e:
+            print(f'# ModelEditor.model_load() model load fail, error : {e}\n')
 
 
     def edit_ext_datas(self, datas, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True):
