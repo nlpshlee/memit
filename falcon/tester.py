@@ -21,7 +21,7 @@ def load_datas(in_file_path: str):
     in_file = open_file(in_file_path, mode='r')
     datas = json.load(in_file)
 
-    print(f'# data_preprocessor.load_datas() datas size : {len(datas)}, in_file_path : {in_file_path}')
+    print(f'# falcon.tester.load_datas() datas size : {len(datas)}, in_file_path : {in_file_path}')
     return datas
 
 
@@ -798,7 +798,7 @@ def run_250723_save_and_load(do_save=False, do_load=False):
             in_file_path = f'{in_path}/identical{identical_num}/' + file_name.format(identical_num, batch_idx, '')
             datas_subject = load_datas(in_file_path)
 
-            save_path = f'{model_dir}/identical{identical_num}_{identical_num*num_edits}_batch_{batch_idx}'
+            save_path = f'{model_dir}/identical{identical_num}_{identical_num*num_edits}_batch{batch_idx}'
 
             if do_save:
                 model_editor.set_params_external({'layers': layers_subject})
