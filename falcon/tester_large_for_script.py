@@ -92,7 +92,7 @@ def run_memit(alg_name: str, model_name: str, data_dir: str, identical_num: int,
 
     # 현재까지의 모든 배치 단위로 성능 측정
     for batch_idx_cur in range(1, batch_idx+1):
-        print(f'# falcon.tester_only_seq_large.run_memit() batch_idx : {batch_idx}, batch_idx_cur : {batch_idx_cur}\n')
+        print(f'# falcon.tester_large_for_script.run_memit() batch_idx : {batch_idx}, batch_idx_cur : {batch_idx_cur}\n')
 
         in_file_path = get_in_file_path_subject(data_dir, identical_num, batch_idx_cur)
         datas_batch = load_datas(in_file_path)
@@ -140,7 +140,7 @@ def run_two_step(alg_name: str, model_name: str, data_dir: str, identical_num: i
         
         # 현재까지의 모든 배치 단위로 성능 측정
         for batch_idx_cur in range(1, batch_idx+1):
-            print(f'# falcon.tester_only_seq_large.run_two_step() batch_idx : {batch_idx}, batch_idx_cur : {batch_idx_cur}\n')
+            print(f'# falcon.tester_large_for_script.run_two_step() batch_idx : {batch_idx}, batch_idx_cur : {batch_idx_cur}\n')
 
             in_file_path = get_in_file_path_subject(data_dir, identical_num, batch_idx_cur)
             datas_batch = load_datas(in_file_path)
@@ -148,7 +148,7 @@ def run_two_step(alg_name: str, model_name: str, data_dir: str, identical_num: i
 
 
 def run(alg_name: str, model_name: str, data_dir, identical_num: int, num_edits: int, batch_idx: int, mode: str, model_dir: str):
-    print(f'# falcon.tester_only_seq_large.run()')
+    print(f'# falcon.tester_large_for_script.run()')
     print(f'\talg_name : {alg_name}')
     print(f'\tmodel_name : {model_name}')
     print(f'\tdata_dir : {data_dir}')

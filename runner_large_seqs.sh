@@ -21,7 +21,7 @@ for IDX in "${!IDENTICAL_NUMS[@]}"; do
 	NUM_EDITS=${NUM_EDITS_LIST[$IDX]}
 	DATA_SIZE=$(($IDENTICAL_NUM * $NUM_EDITS))
 
-	LOG_FILE_PATH=$LOG_DIR"/log_only_seq_large_"$ALG_NAME"_"$MODEL_NAME"_identcial"$IDENTICAL_NUM"_"$DATA_SIZE".txt"
+	LOG_FILE_PATH=$LOG_DIR"/log_large_seq_"$ALG_NAME"_"$MODEL_NAME"_identcial"$IDENTICAL_NUM"_"$DATA_SIZE".txt"
 	echo "Removing existing log file : $LOG_FILE_PATH"
 	rm -f "$LOG_FILE_PATH"
 
@@ -38,7 +38,7 @@ for IDX in "${!IDENTICAL_NUMS[@]}"; do
 			echo "model_dir : $MODEL_DIR"
 			echo ""
 
-			python -u -m falcon.tester_only_seq_large \
+			python -u -m falcon.tester_large_for_script \
 				--alg_name=$ALG_NAME \
 				--model_name=$MODEL_NAME \
 				--data_dir=$DATA_DIR \
