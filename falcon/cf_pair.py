@@ -1,6 +1,32 @@
 from typing import Any, Dict, List, Set, Union, Optional
 
 
+def get_data_template(null_int=-1, null_str='') -> dict:
+    data = {
+        'case_id': null_int,
+        'pararel_idx': null_int,
+        'requested_rewrite': {
+            'prompt': null_str,
+            'relation_id': null_str,
+            'target_new': {
+                'str': null_str,
+                'id': null_str
+            },
+            'target_true': {
+                'str': null_str,
+                'id': null_str
+            },
+            'subject': null_str
+        },
+        'paraphrase_prompts': [],
+        'neighborhood_prompts': [],
+        'attribute_prompts': [],
+        'generation_prompts': []
+    }
+
+    return data
+
+
 class CFPair:
     def __init__(self, data: dict):
         self._case_id: Optional[int] = None
